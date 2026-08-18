@@ -14,7 +14,191 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          initials: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          initials: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          initials?: string
+        }
+        Relationships: []
+      }
+      holidays: {
+        Row: {
+          day: string
+          id: string
+          label: string
+        }
+        Insert: {
+          day: string
+          id?: string
+          label: string
+        }
+        Update: {
+          day?: string
+          id?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      machines: {
+        Row: {
+          active: boolean
+          capacity_range: string | null
+          code: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          capacity_range?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          capacity_range?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          deadline: string | null
+          end_date: string | null
+          id: string
+          machine_id: string | null
+          notes: string | null
+          nr: number | null
+          opportunity_code: string | null
+          planned_days: number
+          preferred_machine_id: string | null
+          price: number | null
+          priority: string
+          project_code: string | null
+          quote: string | null
+          responsible_id: string | null
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          deadline?: string | null
+          end_date?: string | null
+          id?: string
+          machine_id?: string | null
+          notes?: string | null
+          nr?: number | null
+          opportunity_code?: string | null
+          planned_days?: number
+          preferred_machine_id?: string | null
+          price?: number | null
+          priority?: string
+          project_code?: string | null
+          quote?: string | null
+          responsible_id?: string | null
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          deadline?: string | null
+          end_date?: string | null
+          id?: string
+          machine_id?: string | null
+          notes?: string | null
+          nr?: number | null
+          opportunity_code?: string | null
+          planned_days?: number
+          preferred_machine_id?: string | null
+          price?: number | null
+          priority?: string
+          project_code?: string | null
+          quote?: string | null
+          responsible_id?: string | null
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_preferred_machine_id_fkey"
+            columns: ["preferred_machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_responsible_id_fkey"
+            columns: ["responsible_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
