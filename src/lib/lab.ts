@@ -156,9 +156,11 @@ export function conflictIds(projects: Project[]): Set<string> {
   for (const list of byMachine.values()) {
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        if (overlaps(list[i], list[j])) {
-          out.add(list[i].id);
-          out.add(list[j].id);
+        const a = list[i]!;
+        const b = list[j]!;
+        if (overlaps(a, b)) {
+          out.add(a.id);
+          out.add(b.id);
         }
       }
     }
@@ -167,7 +169,7 @@ export function conflictIds(projects: Project[]): Set<string> {
 }
 
 export function conflictsFor(
-  candidate: { id?: string; machine_id: string | null; start_date: string; end_date: string },
+  candidate: { id?: string | undefined; machine_id: string | null; start_date: string; end_date: string },
   projects: Project[],
 ): Project[] {
   if (!candidate.machine_id) return [];
@@ -201,7 +203,7 @@ export function earliestSlot(
       projects,
     );
     if (clash.length === 0) return { machineId, start: iso(cursor), end: iso(end) };
-    const latest = clash.reduce((m, c) => (c.end_date! > m ? c.end_date! : m), clash[0].end_date!);
+    const latest = clash.reduce((m, c) => (c.end_date! > m ? c.end_date! : m), clash[0]!.end_date!);
     cursor = nextWorkingDay(addDays(parseISO(latest), 1), holidays);
   }
   const end = endForWorkingDays(cursor, days, holidays);
