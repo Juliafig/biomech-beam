@@ -80,7 +80,10 @@ export function ProjectSheet({
   };
 
   const save = async () => {
-    if (!form.title?.trim()) return toast.error("Title is required.");
+    if (!form.title?.trim()) {
+      toast.error("Title is required.");
+      return;
+    }
     const payload: ProjectDraft = {
       ...form,
       planned_days:
