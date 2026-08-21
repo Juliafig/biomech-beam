@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          parts: Json
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parts?: Json
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parts?: Json
+          role?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string
@@ -35,18 +56,21 @@ export type Database = {
       employees: {
         Row: {
           created_at: string
+          email: string | null
           full_name: string
           id: string
           initials: string
         }
         Insert: {
           created_at?: string
+          email?: string | null
           full_name: string
           id?: string
           initials: string
         }
         Update: {
           created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
           initials?: string
@@ -100,6 +124,68 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      project_steps: {
+        Row: {
+          created_at: string
+          critical: boolean
+          description: string | null
+          done: boolean
+          done_at: string | null
+          due_date: string | null
+          id: string
+          planned_start: string | null
+          project_id: string
+          reminder_days_before: number
+          reminder_enabled: boolean
+          reminder_sent_at: string | null
+          sequence: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          critical?: boolean
+          description?: string | null
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          planned_start?: string | null
+          project_id: string
+          reminder_days_before?: number
+          reminder_enabled?: boolean
+          reminder_sent_at?: string | null
+          sequence?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          critical?: boolean
+          description?: string | null
+          done?: boolean
+          done_at?: string | null
+          due_date?: string | null
+          id?: string
+          planned_start?: string | null
+          project_id?: string
+          reminder_days_before?: number
+          reminder_enabled?: boolean
+          reminder_sent_at?: string | null
+          sequence?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_steps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
