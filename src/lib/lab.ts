@@ -17,7 +17,7 @@ export type Machine = {
 };
 
 export type Customer = { id: string; name: string };
-export type Employee = { id: string; initials: string; full_name: string };
+export type Employee = { id: string; initials: string; full_name: string; email: string | null };
 export type Holiday = { id: string; day: string; label: string };
 
 export type ProjectStatus =
