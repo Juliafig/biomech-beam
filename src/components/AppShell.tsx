@@ -1,11 +1,20 @@
 import { Link } from "@tanstack/react-router";
-import { Activity, CalendarRange, LayoutDashboard, Table2 } from "lucide-react";
+import {
+  Activity,
+  CalendarRange,
+  LayoutDashboard,
+  Sparkles,
+  Table2,
+  UserRound,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 const NAV = [
   { to: "/", label: "Planning", icon: CalendarRange },
   { to: "/projects", label: "Projects", icon: Table2 },
+  { to: "/engineer", label: "My Projects", icon: UserRound },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/assistant", label: "Assistant", icon: Sparkles },
 ] as const;
 
 export function AppShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
