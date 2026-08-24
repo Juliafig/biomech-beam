@@ -176,7 +176,7 @@ export function useProjectSteps(projectId: string | null) {
       const { data, error } = await supabase
         .from("project_steps")
         .select("*")
-        .eq("project_id", projectId)
+        .eq("project_id", projectId as string)
         .order("sequence", { ascending: true });
       if (error) throw error;
       return (data ?? []) as ProjectStep[];
