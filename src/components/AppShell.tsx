@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Activity,
   CalendarRange,
   LayoutDashboard,
   Sparkles,
@@ -20,28 +19,30 @@ const NAV = [
 export function AppShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-surface/95 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded bg-primary text-primary-foreground">
-              <Activity className="size-4" />
-            </span>
+      <header className="sticky top-0 z-40 border-b border-brand bg-brand text-brand-foreground shadow-sm">
+        <div className="flex min-h-14 flex-wrap items-center gap-4 px-4 py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 items-center border border-brand-foreground/25 bg-brand-foreground/10 px-2.5 leading-none">
+              <span className="text-base font-bold italic">Applus</span>
+              <span className="text-lg font-bold text-primary">+</span>
+            </div>
+            <div className="h-6 w-px bg-brand-foreground/25" />
             <div className="leading-tight">
-              <div className="text-sm font-semibold tracking-tight">Lab Planner</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Biomechanical testing
+              <div className="text-xs font-semibold uppercase">Lab planning interface</div>
+              <div className="text-[10px] uppercase text-brand-foreground/60">
+                Biomechanical division
               </div>
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 rounded-md bg-surface-2 p-0.5">
+          <nav className="flex items-center gap-0.5 bg-brand-foreground/10 p-0.5">
             {NAV.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
                 activeOptions={{ exact: n.to === "/" }}
-                className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "bg-card text-foreground shadow-sm" }}
+                className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                activeProps={{ className: "bg-card !text-brand shadow-sm" }}
               >
                 <n.icon className="size-3.5" />
                 {n.label}
@@ -49,7 +50,7 @@ export function AppShell({ children, actions }: { children: ReactNode; actions?:
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">{actions}</div>
+          <div className="ml-auto flex items-center gap-2 [&_.border-input]:border-brand-foreground/25 [&_.bg-background]:bg-brand-foreground/10 [&_.bg-card]:bg-brand-foreground/10 [&_.text-muted-foreground]:text-brand-foreground/70">{actions}</div>
         </div>
       </header>
       <main className="p-4">{children}</main>

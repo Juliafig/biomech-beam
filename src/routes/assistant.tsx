@@ -31,6 +31,8 @@ export const Route = createFileRoute("/assistant")({
         property: "og:description",
         content: "Optimise machine occupancy and schedule projects via chat.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AssistantPage,
