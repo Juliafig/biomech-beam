@@ -42,7 +42,7 @@ export function AppShell({ children, actions }: { children: ReactNode; actions?:
                 to={n.to}
                 activeOptions={{ exact: n.to === "/" }}
                 className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium text-brand-foreground/70 transition-colors hover:bg-brand-foreground/10 hover:text-brand-foreground"
-                activeProps={{ className: "bg-card text-brand shadow-sm" }}
+                activeProps={{ className: "bg-card !text-brand shadow-sm" }}
               >
                 <n.icon className="size-3.5" />
                 {n.label}
