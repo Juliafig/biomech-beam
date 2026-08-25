@@ -44,14 +44,14 @@ function PlanningPage() {
     <AppShell
       actions={
         <>
-          <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
+          <div className="flex items-center gap-1 rounded-sm border border-brand-foreground/20 bg-brand-foreground/10 p-0.5">
             {(Object.keys(ZOOMS) as Zoom[]).map((z) => (
               <button
                 key={z}
                 onClick={() => setZoom(z)}
                 className={cn(
-                  "rounded px-2 py-1 text-xs font-medium text-muted-foreground",
-                  zoom === z && "bg-secondary text-foreground",
+                  "rounded-sm px-2 py-1 text-xs font-medium text-brand-foreground/70",
+                  zoom === z && "bg-card text-brand shadow-sm",
                 )}
               >
                 {ZOOMS[z].label}
@@ -76,7 +76,7 @@ function PlanningPage() {
       <div className="grid gap-4 xl:grid-cols-[1fr_260px]">
         <div className="min-w-0 space-y-2">
           <div className="flex items-baseline justify-between">
-            <h1 className="text-sm font-semibold">
+            <h1 className="text-sm font-semibold uppercase text-foreground">
               Machine occupancy · {format(anchor, "MMMM yyyy")}
             </h1>
             <span className="text-xs text-muted-foreground">
