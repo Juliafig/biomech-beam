@@ -30,6 +30,8 @@ export const Route = createFileRoute("/engineer")({
         property: "og:description",
         content: "Project steps and critical-step reminders per engineer.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: EngineerPage,

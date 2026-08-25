@@ -23,6 +23,8 @@ export const Route = createFileRoute("/dashboard")({
         property: "og:description",
         content: "KPIs, utilisation and scheduling alerts at a glance.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: DashboardPage,

@@ -31,6 +31,8 @@ export const Route = createFileRoute("/projects")({
         property: "og:description",
         content: "Search and filter every testing project in the laboratory.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ProjectsPage,
