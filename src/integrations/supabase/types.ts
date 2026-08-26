@@ -140,6 +140,7 @@ export type Database = {
           reminder_enabled: boolean
           reminder_sent_at: string | null
           sequence: number
+          status: string
           title: string
           updated_at: string
         }
@@ -157,6 +158,7 @@ export type Database = {
           reminder_enabled?: boolean
           reminder_sent_at?: string | null
           sequence?: number
+          status?: string
           title: string
           updated_at?: string
         }
@@ -174,6 +176,7 @@ export type Database = {
           reminder_enabled?: boolean
           reminder_sent_at?: string | null
           sequence?: number
+          status?: string
           title?: string
           updated_at?: string
         }
