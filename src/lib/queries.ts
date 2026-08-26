@@ -158,6 +158,7 @@ export type ProjectStep = {
   title: string;
   description: string | null;
   sequence: number;
+  status: ProjectStepStatus;
   planned_start: string | null;
   due_date: string | null;
   done: boolean;
@@ -167,6 +168,8 @@ export type ProjectStep = {
   reminder_enabled: boolean;
   reminder_sent_at: string | null;
 };
+
+export type ProjectStepStatus = "todo" | "in_progress" | "completed";
 
 export function useProjectSteps(projectId: string | null) {
   return useQuery({
