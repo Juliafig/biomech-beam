@@ -4,6 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
+  Navigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -12,6 +14,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
+import { AuthProvider, useAuth } from "../lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -141,9 +144,44 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
       {/* Without this, every toast (save errors, confirmations) was silently dropped. */}
       <Toaster richColors position="bottom-right" />
     </QueryClientProvider>
   );
+}
+
+// Pages reachable without being signed in.
+const PUBLIC_ROUTES = new Set<string>(["/login", "/reset-password"]);
+
+/** Renders the page only for signed-in users; everyone else goes to /login. */
+function AuthGate() {
+  const { session } = useAuth();
+  // Decide from the route actually being rendered, not the URL: during a
+  // navigation the URL changes before the matched page does, and checking the
+  // URL briefly rendered the previous (private) page with no session.
+  const isPublic = useRouterState({
+    select: (s) => s.matches.some((m) => PUBLIC_ROUTES.has(m.routeId)),
+  });
+  const pathname = useRouterState({
+    select: (s) => s.matches[s.matches.length - 1]?.pathname ?? "/",
+  });
+
+  if (isPublic) return <Outlet />;
+
+  // Session not known yet (first paint / SSR): don't render pages, so no data
+  // queries run before we know who the user is.
+  if (session === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+  if (!session) {
+    return <Navigate to="/login" search={{ redirect: pathname === "/" ? undefined : pathname }} replace />;
+  }
+  return <Outlet />;
 }

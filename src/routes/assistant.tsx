@@ -15,6 +15,7 @@ import {
 } from "@/lib/queries";
 import { endForWorkingDays, iso, toDate, workingDays } from "@/lib/lab";
 import { toast } from "sonner";
+import { getAccessToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/assistant")({
@@ -88,7 +89,18 @@ function AssistantPage() {
     [history.data],
   );
 
-  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        // Send the user's session so the server can check who is asking.
+        headers: async (): Promise<Record<string, string>> => {
+          const token = await getAccessToken();
+          return token ? { Authorization: `Bearer ${token}` } : {};
+        },
+      }),
+    [],
+  );
   const { messages, sendMessage, status, error, setMessages } = useChat({
     id: "lab-assistant",
     transport,

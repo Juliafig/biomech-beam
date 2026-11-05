@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, tool, stepCountIs, type UIMessage } from "ai";
 import { z } from "zod";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 type ChatRequestBody = { messages?: unknown };
 
@@ -24,20 +26,31 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
+        // Only signed-in lab members may use the assistant (and spend API credit).
+        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+        if (!token) return new Response("Please sign in.", { status: 401 });
+        const db = createClient<Database>(
+          import.meta.env["VITE_SUPABASE_URL"],
+          import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
+          {
+            // Every query runs as this user, so database permissions (RLS) apply.
+            global: { headers: { Authorization: `Bearer ${token}` } },
+            auth: { persistSession: false, autoRefreshToken: false },
+          },
+        );
+        const { data: member, error: memberError } = await db.rpc("is_lab_member");
+        if (memberError || member !== true) {
+          return new Response("Not allowed.", { status: 403 });
+        }
+
         const key = process.env["ANTHROPIC_API_KEY"];
         if (!key) return new Response("Missing ANTHROPIC_API_KEY", { status: 500 });
-
-        // Uses the service-role client when SUPABASE_SERVICE_ROLE_KEY is configured;
-        // otherwise falls back to the public client (works while the tables allow anon access).
-        const supabaseAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
-          ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
-          : (await import("@/integrations/supabase/client")).supabase;
 
         const listMachines = tool({
           description: "List all test machines with code, name and capacity range.",
           inputSchema: z.object({}),
           execute: async () => {
-            const { data } = await supabaseAdmin
+            const { data } = await db
               .from("machines")
               .select("id, code, name, capacity_range, active")
               .order("sort_order");
@@ -54,11 +67,11 @@ export const Route = createFileRoute("/api/chat")({
             to: z.string().nullable(),
           }),
           execute: async ({ machineCode, from, to }) => {
-            const { data: machines } = await supabaseAdmin
+            const { data: machines } = await db
               .from("machines")
               .select("id, code");
             const byId = new Map((machines ?? []).map((m) => [m.id, m.code]));
-            const { data } = await supabaseAdmin
+            const { data } = await db
               .from("projects")
               .select(
                 "id, nr, title, project_code, status, priority, start_date, end_date, planned_days, machine_id, deadline",
@@ -83,7 +96,7 @@ export const Route = createFileRoute("/api/chat")({
           description: "List configured laboratory holidays (non-working days).",
           inputSchema: z.object({}),
           execute: async () => {
-            const { data } = await supabaseAdmin.from("holidays").select("day, label").order("day");
+            const { data } = await db.from("holidays").select("day, label").order("day");
             return data ?? [];
           },
         });
@@ -160,7 +173,7 @@ export const Route = createFileRoute("/api/chat")({
               const rows = [] as { role: string; parts: unknown }[];
               if (user?.role === "user") rows.push({ role: "user", parts: user.parts });
               rows.push({ role: "assistant", parts: responseMessage.parts });
-              const { error } = await supabaseAdmin.from("chat_messages").insert(rows as never);
+              const { error } = await db.from("chat_messages").insert(rows as never);
               if (error) console.error("chat persist failed", error);
             },
           });

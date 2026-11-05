@@ -14,24 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_email_domains: {
+        Row: {
+          domain: string
+        }
+        Insert: {
+          domain: string
+        }
+        Update: {
+          domain?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           created_at: string
           id: string
           parts: Json
           role: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           parts?: Json
           role: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           parts?: Json
           role?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -293,7 +308,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      email_domain_allowed: { Args: { email: string }; Returns: boolean }
+      is_lab_member: { Args: Record<PropertyKey, never>; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

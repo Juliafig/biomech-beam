@@ -2,11 +2,13 @@ import { Link } from "@tanstack/react-router";
 import {
   CalendarRange,
   LayoutDashboard,
+  LogOut,
   Sparkles,
   Table2,
   UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useAuth } from "@/lib/auth";
 
 const NAV = [
   { to: "/", label: "Planning", icon: CalendarRange },
@@ -17,6 +19,7 @@ const NAV = [
 ] as const;
 
 export function AppShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  const { session, signOut } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b border-brand bg-brand text-brand-foreground shadow-sm">
@@ -51,6 +54,22 @@ export function AppShell({ children, actions }: { children: ReactNode; actions?:
           </nav>
 
           <div className="ml-auto flex items-center gap-2 [&_.border-input]:border-brand-foreground/25 [&_.bg-background]:bg-brand-foreground/10 [&_.bg-card]:bg-brand-foreground/10 [&_.text-muted-foreground]:text-brand-foreground/70">{actions}</div>
+
+          {session && (
+            <div className="flex items-center gap-2 border-l border-brand-foreground/25 pl-3 text-[11px] text-brand-foreground/70">
+              <span className="hidden max-w-44 truncate md:inline" title={session.user.email}>
+                {session.user.email}
+              </span>
+              <button
+                onClick={() => void signOut()}
+                className="flex items-center gap-1 rounded-sm px-2 py-1.5 font-medium hover:bg-brand-foreground/10 hover:text-brand-foreground"
+                title="Sign out"
+              >
+                <LogOut className="size-3.5" />
+                <span className="sr-only sm:not-sr-only">Sign out</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
       <main className="p-4">{children}</main>
