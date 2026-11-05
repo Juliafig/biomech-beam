@@ -13,7 +13,7 @@ import {
   useCreateProject,
   useUpdateProject,
 } from "@/lib/queries";
-import { endForWorkingDays, toDate } from "@/lib/lab";
+import { endForWorkingDays, iso, toDate, workingDays } from "@/lib/lab";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -131,12 +131,17 @@ function AssistantPage() {
         const machine = p.machineCode
           ? data.machines.find((m) => m.code.toLowerCase() === p.machineCode!.toLowerCase())
           : null;
+        const current = data.projects.find((x) => x.id === p.projectId);
+        const start = p.startDate ?? current?.start_date ?? null;
+        const end = p.endDate ?? current?.end_date ?? null;
         await updateProject.mutateAsync({
           id: p.projectId,
           patch: {
             ...(machine ? { machine_id: machine.id } : {}),
             ...(p.startDate ? { start_date: p.startDate } : {}),
             ...(p.endDate ? { end_date: p.endDate } : {}),
+            // Keep "working days" consistent with the new dates.
+            ...(start && end ? { planned_days: workingDays(start, end, data.holidaySet) } : {}),
           },
         });
       } else {
@@ -153,7 +158,7 @@ function AssistantPage() {
           customer_id: customerId,
           machine_id: machine?.id ?? null,
           start_date: p.startDate,
-          end_date: end ? end.toISOString().slice(0, 10) : null,
+          end_date: end ? iso(end) : null,
           planned_days: p.plannedDays || 1,
           priority: p.priority,
           status: p.status as never,

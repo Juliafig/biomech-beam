@@ -88,7 +88,12 @@ export const statusStyle = (status: ProjectStatus) => {
 
 /* ---------- date helpers ---------- */
 
-export const iso = (d: Date) => format(d, "yyyy-MM-dd");
+/** Local yyyy-MM-dd. Hand-rolled because it runs in hot loops (grid, slot search). */
+export const iso = (d: Date) => {
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${d.getFullYear()}-${m < 10 ? "0" : ""}${m}-${day < 10 ? "0" : ""}${day}`;
+};
 export const toDate = (s: string) => parseISO(s);
 export const fmt = (s: string | null, pattern = "dd MMM yyyy") =>
   s ? format(parseISO(s), pattern) : "—";
@@ -154,15 +159,16 @@ export function conflictIds(projects: Project[]): Set<string> {
     byMachine.set(p.machine_id!, list);
   }
   for (const list of byMachine.values()) {
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i]!;
-        const b = list[j]!;
-        if (overlaps(a, b)) {
-          out.add(a.id);
-          out.add(b.id);
-        }
+    // Sweep line: sorted by start, compare only against bookings still "open".
+    list.sort((a, b) => (a.start_date! < b.start_date! ? -1 : a.start_date! > b.start_date! ? 1 : 0));
+    let open: Project[] = [];
+    for (const p of list) {
+      open = open.filter((o) => o.end_date! >= p.start_date!);
+      for (const o of open) {
+        out.add(o.id);
+        out.add(p.id);
       }
+      open.push(p);
     }
   }
   return out;

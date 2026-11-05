@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { addDays, format } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Timeline } from "@/components/Timeline";
@@ -95,7 +95,7 @@ function PlanningPage() {
                 title: "",
                 machine_id: machineId,
                 start_date: date,
-                end_date: iso(endForWorkingDays(new Date(date), 1, data.holidaySet)),
+                end_date: iso(endForWorkingDays(parseISO(date), 1, data.holidaySet)),
                 planned_days: 1,
               })
             }

@@ -62,15 +62,24 @@ export function ProjectSheet({
   const isNew = !form.id;
   const set = (patch: ProjectDraft) => setForm((f) => ({ ...f, ...patch }));
 
+  // Only recompute slot suggestions when a scheduling-relevant field changes,
+  // not on every keystroke in the title/notes fields.
+  const open = Boolean(draft);
+  const { id: formId, planned_days: formDays, preferred_machine_id, machine_id } = form;
   const suggestions = useMemo(() => {
-    if (!draft) return [];
+    if (!open) return [];
     return suggestSlots(
-      { ...(form as Project), planned_days: form.planned_days || 1 },
+      {
+        id: formId,
+        planned_days: formDays || 1,
+        preferred_machine_id: preferred_machine_id ?? null,
+        machine_id: machine_id ?? null,
+      } as Project,
       data.machines,
       data.projects,
       data.holidaySet,
     );
-  }, [draft, form, data]);
+  }, [open, formId, formDays, preferred_machine_id, machine_id, data.machines, data.projects, data.holidaySet]);
 
   const applyDays = (days: number) => {
     if (form.start_date) {
@@ -92,14 +101,30 @@ export function ProjectSheet({
           : (form.planned_days ?? 1),
     };
     delete (payload as Record<string, unknown>)["id"];
-    if (isNew) {
-      await create.mutateAsync(payload);
-      toast.success("Project created.");
-    } else {
-      await update.mutateAsync({ id: form.id!, patch: payload });
-      toast.success("Project saved.");
+    try {
+      if (isNew) {
+        await create.mutateAsync(payload);
+        toast.success("Project created.");
+      } else {
+        await update.mutateAsync({ id: form.id!, patch: payload });
+        toast.success("Project saved.");
+      }
+      onClose();
+    } catch {
+      // The mutation already shows the error toast; keep the sheet open so nothing is lost.
     }
-    onClose();
+  };
+
+  const destroy = async () => {
+    if (!form.id) return;
+    if (!window.confirm(`Delete "${form.title ?? "this project"}"? This cannot be undone.`)) return;
+    try {
+      await remove.mutateAsync(form.id);
+      toast.success("Project deleted.");
+      onClose();
+    } catch {
+      // Error toast already shown by the mutation.
+    }
   };
 
   return (
@@ -320,11 +345,9 @@ export function ProjectSheet({
                 <Button
                   variant="ghost"
                   className="ml-auto text-destructive hover:text-destructive"
-                  onClick={async () => {
-                    await remove.mutateAsync(form.id!);
-                    toast.success("Project deleted.");
-                    onClose();
-                  }}
+                  onClick={destroy}
+                  disabled={remove.isPending}
+                  aria-label="Delete project"
                 >
                   <Trash2 className="size-4" />
                 </Button>

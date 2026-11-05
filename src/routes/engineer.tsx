@@ -1,5 +1,6 @@
 import { useMemo, useState, type DragEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { addDays, parseISO } from "date-fns";
 import {
   Bell,
   BellOff,
@@ -58,8 +59,10 @@ const STEP_COLUMNS: Array<{
 
 function reminderState(step: ProjectStep, todayIso: string) {
   if (step.status === "completed" || !step.reminder_enabled || !step.planned_start) return null;
-  const trigger = new Date(step.planned_start);
-  trigger.setDate(trigger.getDate() - step.reminder_days_before);
+  // "Acknowledge" stores reminder_sent_at; previously it was ignored so the reminder never went away.
+  if (step.reminder_sent_at) return null;
+  // parseISO = local midnight (new Date("yyyy-MM-dd") is UTC and can shift the day).
+  const trigger = addDays(parseISO(step.planned_start), -step.reminder_days_before);
   if (todayIso >= step.planned_start) return "overdue";
   if (todayIso >= iso(trigger)) return "due";
   return null;
