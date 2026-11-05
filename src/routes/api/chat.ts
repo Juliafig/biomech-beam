@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, tool, stepCountIs, type UIMessage } from "ai";
 import { z } from "zod";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { createAnthropic } from "@ai-sdk/anthropic";
 
 type ChatRequestBody = { messages?: unknown };
 
@@ -24,10 +24,14 @@ export const Route = createFileRoute("/api/chat")({
           return new Response("Messages are required", { status: 400 });
         }
 
-        const key = process.env["LOVABLE_API_KEY"];
-        if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+        const key = process.env["ANTHROPIC_API_KEY"];
+        if (!key) return new Response("Missing ANTHROPIC_API_KEY", { status: 500 });
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        // Uses the service-role client when SUPABASE_SERVICE_ROLE_KEY is configured;
+        // otherwise falls back to the public client (works while the tables allow anon access).
+        const supabaseAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
+          ? (await import("@/integrations/supabase/client.server")).supabaseAdmin
+          : (await import("@/integrations/supabase/client")).supabase;
 
         const listMachines = tool({
           description: "List all test machines with code, name and capacity range.",
@@ -128,14 +132,17 @@ export const Route = createFileRoute("/api/chat")({
           execute: async (input) => ({ kind: "new_project", ...input }),
         });
 
-        const gateway = createLovableAiGatewayProvider(key);
+        const anthropic = createAnthropic({ apiKey: key });
+        // Override with CLAUDE_MODEL (e.g. "claude-haiku-5-5" for lower cost).
+        const modelId = process.env["CLAUDE_MODEL"] || "claude-opus-5-5";
 
         try {
           const result = streamText({
-            model: gateway("google/gemini-3.7-flash"),
+            model: anthropic(modelId),
+            maxOutputTokens: 16000,
             system: SYSTEM,
             messages: await convertToModelMessages(messages as UIMessage[]),
-            stopWhen: stepCountIs(50),
+            stopWhen: stepCountIs(15),
             tools: {
               today,
               list_machines: listMachines,

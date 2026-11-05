@@ -1,0 +1,8 @@
+// Cloudflare Workers settings. Nitro merges this into the generated
+// .output/server/wrangler.json at build time; `wrangler deploy` then uses that.
+{
+  "name": "lab-planner",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true }
+}
