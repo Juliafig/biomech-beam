@@ -71,8 +71,24 @@ export function useUpdateProject() {
       const { error } = await supabase.from("projects").update(patch).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
-    onError: (e: Error) => toast.error(e.message),
+    // Optimistic update: the board reflects a drag/resize immediately instead of
+    // snapping back to the old position until the refetch completes.
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: ["projects"] });
+      const previous = qc.getQueryData<Project[]>(["projects"]);
+      if (previous) {
+        qc.setQueryData<Project[]>(
+          ["projects"],
+          previous.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        );
+      }
+      return { previous };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["projects"], ctx.previous);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
 
@@ -217,8 +233,20 @@ export function useStepMutations() {
       const { error } = await supabase.from("project_steps").update(patch as never).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
+    // Optimistic update so a step dropped on another column moves immediately.
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: ["project_steps"] });
+      const snapshots = qc.getQueriesData<ProjectStep[]>({ queryKey: ["project_steps"] });
+      for (const [key, list] of snapshots) {
+        if (list) qc.setQueryData(key, list.map((st) => (st.id === id ? { ...st, ...patch } : st)));
+      }
+      return { snapshots };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      for (const [key, list] of ctx?.snapshots ?? []) qc.setQueryData(key, list);
+      toast.error(e.message);
+    },
+    onSettled: invalidate,
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
@@ -256,7 +284,7 @@ export function useClearChatHistory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("chat_messages").delete().neq("id", "");
+      const { error } = await supabase.from("chat_messages").delete().not("id", "is", null);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["chat_messages"] }),
