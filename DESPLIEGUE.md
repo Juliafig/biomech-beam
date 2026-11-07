@@ -60,8 +60,9 @@ Necesitas Node.js instalado en tu ordenador (https://nodejs.org, versión 22).
    NEW_SUPABASE_URL="https://xxxx.supabase.co" NEW_SUPABASE_SECRET_KEY="sb_secret_..." node scripts/migrar-datos.mjs
    ```
 
-   El script lee los datos antiguos de Lovable Cloud (con los valores actuales
-   de `.env`) y los copia al proyecto nuevo, sustituyendo los datos de ejemplo.
+   El script lee los datos antiguos de Lovable Cloud (su dirección ya está
+   incluida en el script) y los copia al proyecto nuevo, sustituyendo los datos
+   de ejemplo.
    El historial del asistente no se copia.
 
 ## 4. Apuntar la app a la base de datos nueva
@@ -78,7 +79,7 @@ La *publishable key* está en **Project Settings → API Keys** y es pública
 (va dentro de la web); los permisos los protege la base de datos.
 Sube el cambio a la rama `cloudflare` en GitHub.
 
-Haz este paso **después** del paso 3.
+> ✅ Ya hecho para el proyecto `aydcbiwjbxzcktwhnpkz`.
 
 ## 5. Publicar en Cloudflare
 
