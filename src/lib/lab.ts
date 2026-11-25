@@ -52,10 +52,7 @@ export type Project = {
   notes: string | null;
 };
 
-export const STATUS_META: Record<
-  ProjectStatus,
-  { label: string; token: string; short: string }
-> = {
+export const STATUS_META: Record<ProjectStatus, { label: string; token: string; short: string }> = {
   quotation_sent: { label: "Quotation sent", token: "quoted", short: "Quoted" },
   ordered: { label: "Ordered — no specimens yet", token: "ordered", short: "Ordered" },
   in_preparation: { label: "In preparation", token: "prep", short: "Prep" },
@@ -160,7 +157,9 @@ export function conflictIds(projects: Project[]): Set<string> {
   }
   for (const list of byMachine.values()) {
     // Sweep line: sorted by start, compare only against bookings still "open".
-    list.sort((a, b) => (a.start_date! < b.start_date! ? -1 : a.start_date! > b.start_date! ? 1 : 0));
+    list.sort((a, b) =>
+      a.start_date! < b.start_date! ? -1 : a.start_date! > b.start_date! ? 1 : 0,
+    );
     let open: Project[] = [];
     for (const p of list) {
       open = open.filter((o) => o.end_date! >= p.start_date!);
@@ -175,7 +174,12 @@ export function conflictIds(projects: Project[]): Set<string> {
 }
 
 export function conflictsFor(
-  candidate: { id?: string | undefined; machine_id: string | null; start_date: string; end_date: string },
+  candidate: {
+    id?: string | undefined;
+    machine_id: string | null;
+    start_date: string;
+    end_date: string;
+  },
   projects: Project[],
 ): Project[] {
   if (!candidate.machine_id) return [];
@@ -227,9 +231,7 @@ export function suggestSlots(
   const pref = project.preferred_machine_id ?? project.machine_id;
   return machines
     .filter((m) => m.active)
-    .map((m) =>
-      earliestSlot(m.id, project.planned_days || 1, from, projects, holidays, project.id),
-    )
+    .map((m) => earliestSlot(m.id, project.planned_days || 1, from, projects, holidays, project.id))
     .sort((a, b) => {
       if (a.start !== b.start) return a.start < b.start ? -1 : 1;
       if (a.machineId === pref) return -1;
@@ -269,18 +271,59 @@ export function utilisation(
 
 /* ---------- timeline scale ---------- */
 
-export type Zoom = "day" | "week" | "month" | "quarter";
+export type Zoom = "day" | "week" | "month" | "quarter" | "year";
 
-export const ZOOMS: Record<Zoom, { label: string; px: number; span: number }> = {
-  day: { label: "Day", px: 56, span: 14 },
-  week: { label: "Week", px: 26, span: 42 },
-  month: { label: "Month", px: 13, span: 92 },
-  quarter: { label: "3 months", px: 7, span: 182 },
+/** The planning board always covers one full year; the zoom only changes the scale. */
+export const PLAN_DAYS = 365;
+
+export const ZOOMS: Record<Zoom, { label: string; px: number; step: number }> = {
+  day: { label: "Day", px: 56, step: 7 },
+  week: { label: "Week", px: 26, step: 7 },
+  month: { label: "Month", px: 13, step: 28 },
+  quarter: { label: "3 months", px: 7, step: 28 },
+  year: { label: "Year", px: 4, step: 28 },
 };
 
-export function timelineRange(anchor: Date, zoom: Zoom) {
+export function timelineRange(anchor: Date, _zoom?: Zoom) {
   const start = startOfWeek(anchor, { weekStartsOn: 1 });
   const days: Date[] = [];
-  for (let i = 0; i < ZOOMS[zoom].span; i++) days.push(addDays(start, i));
-  return { start, days, end: days[days.length - 1] };
+  for (let i = 0; i < PLAN_DAYS; i++) days.push(addDays(start, i));
+  return { start, days, end: days[days.length - 1]! };
+}
+
+/** All active, scheduled projects that start on or after `from` (optionally on one machine). */
+export function laterProjects(
+  projects: Project[],
+  from: string,
+  excludeId: string,
+  machineId: string | null,
+): Project[] {
+  return projects
+    .filter(
+      (p) =>
+        p.id !== excludeId &&
+        isScheduled(p) &&
+        p.status !== "finished" &&
+        p.start_date! >= from &&
+        (machineId === null || p.machine_id === machineId),
+    )
+    .sort((a, b) => (a.start_date! < b.start_date! ? -1 : a.start_date! > b.start_date! ? 1 : 0));
+}
+
+/**
+ * Postpones a booking by `days` calendar days. If it would then start on a weekend
+ * or lab holiday it starts on the next working day, and it keeps the same number
+ * of working days (so a 5-day test stays a 5-day test).
+ */
+export function shiftDates(start: string, end: string, days: number, holidays: Set<string>) {
+  const length = workingDays(start, end, holidays);
+  const moved = addDays(parseISO(start), days);
+  if (length === 0) {
+    return { start_date: iso(moved), end_date: iso(addDays(parseISO(end), days)) };
+  }
+  const newStart = nextWorkingDay(moved, holidays);
+  return {
+    start_date: iso(newStart),
+    end_date: iso(endForWorkingDays(newStart, length, holidays)),
+  };
 }

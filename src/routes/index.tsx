@@ -34,7 +34,7 @@ export const Route = createFileRoute("/")({
 
 function PlanningPage() {
   const data = useLabData();
-  const [anchor, setAnchor] = useState(() => addDays(new Date(), -3));
+  const [anchor, setAnchor] = useState(() => addDays(new Date(), -14));
   const [zoom, setZoom] = useState<Zoom>("week");
   const [draft, setDraft] = useState<ProjectDraft | null>(null);
 
@@ -60,13 +60,21 @@ function PlanningPage() {
               </button>
             ))}
           </div>
-          <Button variant="outline" size="icon" onClick={() => setAnchor(addDays(anchor, -7))}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setAnchor(addDays(anchor, -ZOOMS[zoom].step))}
+          >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setAnchor(addDays(new Date(), -3))}>
+          <Button variant="outline" size="sm" onClick={() => setAnchor(addDays(new Date(), -14))}>
             Today
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setAnchor(addDays(anchor, 7))}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setAnchor(addDays(anchor, ZOOMS[zoom].step))}
+          >
             <ChevronRight className="size-4" />
           </Button>
           <Button size="sm" onClick={() => setDraft({ title: "" })}>

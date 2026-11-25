@@ -92,6 +92,37 @@ export function useUpdateProject() {
   });
 }
 
+/** Update several projects at once (e.g. shifting later projects), with an optimistic update. */
+export function useUpdateProjects() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string; patch: Partial<Project> }[]) => {
+      const results = await Promise.all(
+        updates.map(({ id, patch }) => supabase.from("projects").update(patch).eq("id", id)),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    onMutate: async (updates) => {
+      await qc.cancelQueries({ queryKey: ["projects"] });
+      const previous = qc.getQueryData<Project[]>(["projects"]);
+      if (previous) {
+        const byId = new Map(updates.map((u) => [u.id, u.patch]));
+        qc.setQueryData<Project[]>(
+          ["projects"],
+          previous.map((p) => (byId.has(p.id) ? { ...p, ...byId.get(p.id) } : p)),
+        );
+      }
+      return { previous };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["projects"], ctx.previous);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
@@ -230,7 +261,10 @@ export function useStepMutations() {
   });
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<ProjectStep> }) => {
-      const { error } = await supabase.from("project_steps").update(patch as never).eq("id", id);
+      const { error } = await supabase
+        .from("project_steps")
+        .update(patch as never)
+        .eq("id", id);
       if (error) throw error;
     },
     // Optimistic update so a step dropped on another column moves immediately.
@@ -238,7 +272,11 @@ export function useStepMutations() {
       await qc.cancelQueries({ queryKey: ["project_steps"] });
       const snapshots = qc.getQueriesData<ProjectStep[]>({ queryKey: ["project_steps"] });
       for (const [key, list] of snapshots) {
-        if (list) qc.setQueryData(key, list.map((st) => (st.id === id ? { ...st, ...patch } : st)));
+        if (list)
+          qc.setQueryData(
+            key,
+            list.map((st) => (st.id === id ? { ...st, ...patch } : st)),
+          );
       }
       return { snapshots };
     },

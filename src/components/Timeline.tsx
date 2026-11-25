@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { addDays, format, parseISO } from "date-fns";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { addDays, format, getISOWeek, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import {
   ZOOMS,
@@ -9,6 +9,8 @@ import {
   endForWorkingDays,
   isNonWorking,
   iso,
+  laterProjects,
+  shiftDates,
   timelineRange,
   workingDays,
   type Project,
@@ -17,7 +19,7 @@ import {
 import type { LabData } from "@/lib/useLabData";
 import { statusBarClass } from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
-import { useUpdateProject } from "@/lib/queries";
+import { useUpdateProject, useUpdateProjects } from "@/lib/queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,12 +53,24 @@ type PendingMove = {
   clashes: Project[];
 };
 
+/** A delayed project, waiting for the user to decide whether later projects follow. */
+type PendingRipple = {
+  project: Project;
+  machineId: string;
+  start: string;
+  end: string;
+  delta: number;
+  onMachine: Project[];
+  inLab: Project[];
+};
+
 type DayInfo = {
   iso: string;
   nonWorking: boolean;
   today: boolean;
   weekday: string;
   dayOfMonth: string;
+  monday: boolean;
 };
 
 export function Timeline({
@@ -73,13 +87,17 @@ export function Timeline({
   onCreate: (machineId: string, date: string) => void;
 }) {
   const { machines, projects, holidaySet, conflicts } = data;
-  const px = ZOOMS[zoom].px;
+  // "Year" fits the whole year into the visible width; other zooms use a fixed scale.
+  const [fitPx, setFitPx] = useState(ZOOMS.year.px);
+  const px = zoom === "year" ? fitPx : ZOOMS[zoom].px;
   const { start, days } = useMemo(() => timelineRange(anchor, zoom), [anchor, zoom]);
   const gridRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
+  const [ripple, setRipple] = useState<PendingRipple | null>(null);
   const [hoverCell, setHoverCell] = useState<{ machineId: string; idx: number } | null>(null);
   const update = useUpdateProject();
+  const updateMany = useUpdateProjects();
 
   // Day metadata is computed once per range instead of on every render of every cell.
   const dayInfo = useMemo<DayInfo[]>(() => {
@@ -92,6 +110,7 @@ export function Timeline({
         today: dIso === todayIso,
         weekday: format(d, "EEEEE"),
         dayOfMonth: format(d, "d"),
+        monday: d.getDay() === 1,
       };
     });
   }, [days, holidaySet]);
@@ -99,13 +118,25 @@ export function Timeline({
   const months = useMemo(() => {
     const out: { label: string; span: number }[] = [];
     for (const d of days) {
-      const label = format(d, zoom === "quarter" ? "MMM yy" : "MMMM yyyy");
+      const label = format(d, px < 13 ? "MMM yy" : "MMMM yyyy");
       const last = out[out.length - 1];
       if (last && last.label === label) last.span += 1;
       else out.push({ label, span: 1 });
     }
     return out;
-  }, [days, zoom]);
+  }, [days, px]);
+
+  // Calendar weeks, used as the second header row when days are too narrow to label.
+  const weeks = useMemo(() => {
+    const out: { label: string; span: number }[] = [];
+    for (const d of days) {
+      const label = `W${getISOWeek(d)}`;
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.span += 1;
+      else out.push({ label, span: 1 });
+    }
+    return out;
+  }, [days]);
 
   // Group scheduled projects by machine once, instead of filtering per row on every render.
   const byMachine = useMemo(() => {
@@ -206,7 +237,61 @@ export function Timeline({
       onSelect(p);
       return;
     }
+    // Delayed on the same machine (moved later, or its end pushed later):
+    // ask whether the projects after it should be postponed by the same days.
+    const delay = current.mode === "left" ? 0 : deltaDays;
+    if (delay > 0 && machineId === p.machine_id) {
+      const onMachine = laterProjects(projects, p.start_date, p.id, machineId);
+      const inLab = laterProjects(projects, p.start_date, p.id, null);
+      if (inLab.length > 0) {
+        setRipple({
+          project: p,
+          machineId,
+          start: iso(s),
+          end: iso(e2),
+          delta: delay,
+          onMachine,
+          inLab,
+        });
+        return;
+      }
+    }
     commit(p, machineId, iso(s), iso(e2));
+  };
+
+  /** Moves the delayed project and postpones `followers` by the same number of days. */
+  const applyRipple = (r: PendingRipple, followers: Project[]) => {
+    const moved = { id: r.project.id, start_date: r.start, end_date: r.end };
+    const shifted = followers.map((f) => ({
+      id: f.id,
+      ...shiftDates(f.start_date!, f.end_date!, r.delta, holidaySet),
+    }));
+    const updates = [moved, ...shifted].map(({ id, start_date, end_date }) => ({
+      id,
+      patch: {
+        start_date,
+        end_date,
+        planned_days: workingDays(start_date, end_date, holidaySet),
+        ...(id === r.project.id ? { machine_id: r.machineId } : {}),
+      },
+    }));
+    // Previous dates of everything we touch, for Undo.
+    const before = [r.project, ...followers].map((x) => ({
+      id: x.id,
+      patch: {
+        start_date: x.start_date,
+        end_date: x.end_date,
+        planned_days: x.planned_days,
+        machine_id: x.machine_id,
+      },
+    }));
+    updateMany.mutate(updates, {
+      onSuccess: () =>
+        toast.success(
+          `Postponed ${followers.length} later project${followers.length === 1 ? "" : "s"} by ${r.delta} day${r.delta === 1 ? "" : "s"}.`,
+          { action: { label: "Undo", onClick: () => updateMany.mutate(before) } },
+        ),
+    });
   };
 
   const handleDrop = (e: React.DragEvent, machineId: string) => {
@@ -221,6 +306,23 @@ export function Timeline({
   };
 
   const todayIdx = dayInfo.findIndex((d) => d.today);
+
+  // Bring today into view (a few days of context on the left) when the range or zoom changes.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    el.scrollLeft = zoom === "year" || todayIdx < 0 ? 0 : Math.max(0, (todayIdx - 3) * px);
+  }, [todayIdx, px, start, zoom]);
+
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || zoom !== "year") return;
+    const measure = () => setFitPx(Math.max(2, el.clientWidth / days.length));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [zoom, days.length]);
   const gridWidth = days.length * px;
 
   return (
@@ -253,7 +355,7 @@ export function Timeline({
         {/* grid */}
         <div className="relative flex-1 overflow-x-auto" ref={gridRef}>
           <div style={{ width: gridWidth }}>
-            <TimelineHeader months={months} dayInfo={dayInfo} px={px} />
+            <TimelineHeader months={months} weeks={weeks} dayInfo={dayInfo} px={px} />
 
             {/* rows */}
             <div
@@ -338,7 +440,9 @@ export function Timeline({
                           onPointerDown={(e) => onPointerDown(e, p, "left")}
                           className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100"
                         />
-                        {conflicted && <AlertTriangle className="size-3 shrink-0 text-destructive" />}
+                        {conflicted && (
+                          <AlertTriangle className="size-3 shrink-0 text-destructive" />
+                        )}
                         <div className="min-w-0 leading-tight">
                           <div className="truncate text-[11px] font-semibold">{p.title}</div>
                           {width > 110 && (
@@ -361,6 +465,25 @@ export function Timeline({
           </div>
         </div>
       </div>
+
+      <RippleDialog
+        ripple={ripple}
+        machineCode={data.machineCode}
+        holidays={holidaySet}
+        onClose={() => setRipple(null)}
+        onOnlyThis={() => {
+          if (!ripple) return;
+          const r = ripple;
+          setRipple(null);
+          commit(r.project, r.machineId, r.start, r.end);
+        }}
+        onShift={(scope) => {
+          if (!ripple) return;
+          const r = ripple;
+          setRipple(null);
+          applyRipple(r, scope === "machine" ? r.onMachine : r.inLab);
+        }}
+      />
 
       <ConflictDialog
         pending={pending}
@@ -394,10 +517,12 @@ export function Timeline({
 /** Month + day header. Memoised: it only changes when the range or zoom changes. */
 const TimelineHeader = memo(function TimelineHeader({
   months,
+  weeks,
   dayInfo,
   px,
 }: {
   months: { label: string; span: number }[];
+  weeks: { label: string; span: number }[];
   dayInfo: DayInfo[];
   px: number;
 }) {
@@ -414,22 +539,37 @@ const TimelineHeader = memo(function TimelineHeader({
           </div>
         ))}
       </div>
-      <div className="flex h-[26px] border-b">
-        {dayInfo.map((d) => (
-          <div
-            key={d.iso}
-            className={cn(
-              "flex flex-col items-center justify-center border-r text-[9px] leading-none text-muted-foreground",
-              d.nonWorking && "bg-weekend",
-              d.today && "bg-today/15 font-bold text-today",
-            )}
-            style={{ width: px }}
-          >
-            {px >= 20 && <span>{d.weekday}</span>}
-            <span className={cn("tabular", px < 13 && "text-[8px]")}>{d.dayOfMonth}</span>
-          </div>
-        ))}
-      </div>
+      {px < 13 ? (
+        <div className="flex h-[26px] border-b">
+          {weeks.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-center overflow-hidden border-r text-[9px] text-muted-foreground"
+              style={{ width: w.span * px }}
+              title={w.label}
+            >
+              {w.span * px >= 24 && <span className="tabular">{w.label}</span>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex h-[26px] border-b">
+          {dayInfo.map((d) => (
+            <div
+              key={d.iso}
+              className={cn(
+                "flex flex-col items-center justify-center border-r text-[9px] leading-none text-muted-foreground",
+                d.nonWorking && "bg-weekend",
+                d.today && "bg-today/15 font-bold text-today",
+              )}
+              style={{ width: px }}
+            >
+              {px >= 20 && <span>{d.weekday}</span>}
+              <span className="tabular">{d.dayOfMonth}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -449,13 +589,85 @@ const DayColumns = memo(function DayColumns({
       {dayInfo.map((d) => (
         <div
           key={d.iso}
-          className={cn("h-full border-r border-grid", d.nonWorking && "bg-weekend")}
+          className={cn(
+            "h-full",
+            (px >= 8 || d.monday) && "border-r border-grid",
+            d.nonWorking && "bg-weekend",
+          )}
           style={{ width: px }}
         />
       ))}
     </div>
   );
 });
+
+function RippleDialog({
+  ripple,
+  machineCode,
+  holidays,
+  onClose,
+  onOnlyThis,
+  onShift,
+}: {
+  ripple: PendingRipple | null;
+  machineCode: (id: string | null) => string;
+  holidays: Set<string>;
+  onClose: () => void;
+  onOnlyThis: () => void;
+  onShift: (scope: "machine" | "lab") => void;
+}) {
+  const days = ripple ? `${ripple.delta} day${ripple.delta === 1 ? "" : "s"}` : "";
+  const machine = ripple ? machineCode(ripple.machineId) : "";
+  const preview = ripple?.onMachine.length ? ripple.onMachine : (ripple?.inLab ?? []);
+  return (
+    <AlertDialog open={Boolean(ripple)} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent className="sm:max-w-xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Postpone the projects after it?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 text-sm">
+              <p>
+                <strong>{ripple?.project.title}</strong> is now {days} later. Keep the chronological
+                order by postponing the following projects by the same {days}?
+              </p>
+              <p className="text-xs">
+                Projects that would start on a weekend or holiday start on the next working day and
+                keep their length.
+              </p>
+              <ul className="max-h-40 space-y-1 overflow-y-auto">
+                {preview.slice(0, 8).map((p) => (
+                  <li key={p.id} className="rounded border bg-muted/50 px-2 py-1 text-xs">
+                    {machineCode(p.machine_id)} · {p.title} · {p.start_date} →{" "}
+                    {shiftDates(p.start_date!, p.end_date!, ripple!.delta, holidays).start_date}
+                  </li>
+                ))}
+                {preview.length > 8 && (
+                  <li className="text-xs text-muted-foreground">…and {preview.length - 8} more</li>
+                )}
+              </ul>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="flex flex-col gap-2">
+          {ripple && ripple.onMachine.length > 0 && (
+            <Button onClick={() => onShift("machine")}>
+              Postpone {ripple.onMachine.length} later project
+              {ripple.onMachine.length === 1 ? "" : "s"} on {machine}
+            </Button>
+          )}
+          {ripple && ripple.inLab.length > ripple.onMachine.length && (
+            <Button variant="outline" onClick={() => onShift("lab")}>
+              Postpone all {ripple.inLab.length} later projects (all machines)
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onOnlyThis}>
+            Only move this project
+          </Button>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 function ConflictDialog({
   pending,
